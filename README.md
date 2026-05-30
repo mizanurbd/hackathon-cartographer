@@ -67,7 +67,3 @@ raindrop workshop             # opens local trace UI; traces stream as the agent
 | `modal_app.py` | Modal sandbox execution backend (scale story) |
 | `evals/` | Golden cases + runner (Raindrop-friendly) |
 
-## Demo tips (read BATTLE_PLAN.md)
-- **Cache** the impressive run; never demo live-only.
-- Film the **≤60s** video early.
-- Keep one Raindrop trace open during judging.
