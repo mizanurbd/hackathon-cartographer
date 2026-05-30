@@ -13,6 +13,7 @@ from agents import Agent, Runner, SQLiteSession, function_tool
 
 from .config import SETTINGS
 from .subagent import run_subagent
+from .tracing import begin_run, end_run
 from .verifier import verify_claims
 
 # A simple semaphore enforces the parallel-subagent quota (cost guardrail).
@@ -71,16 +72,22 @@ def build_orchestrator() -> Agent:
 
 async def research(question: str, *, verify: bool = True) -> str:
     """Top-level entry: investigate `question` over the configured repo."""
-    agent = build_orchestrator()
-    session = SQLiteSession("cartographer-run")  # memory across turns
-    prompt = (
-        f"Repo under investigation: {SETTINGS.repo_path}\n\n"
-        f"Question: {question}\n\n"
-        "Investigate and produce the final cited report."
-    )
-    result = await Runner.run(agent, prompt, session=session, max_turns=30)
-    report = str(result.final_output)
+    run = begin_run(question)  # Raindrop trace (no-op if disabled)
+    try:
+        agent = build_orchestrator()
+        session = SQLiteSession("cartographer-run")  # memory across turns
+        prompt = (
+            f"Repo under investigation: {SETTINGS.repo_path}\n\n"
+            f"Question: {question}\n\n"
+            "Investigate and produce the final cited report."
+        )
+        result = await Runner.run(agent, prompt, session=session, max_turns=30)
+        report = str(result.final_output)
 
-    if verify:
-        report = await verify_claims(report)
-    return report
+        if verify:
+            report = await verify_claims(report)
+        end_run(run, report)
+        return report
+    except Exception:
+        end_run(run, "[run errored before completion]")
+        raise

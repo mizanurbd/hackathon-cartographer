@@ -93,15 +93,7 @@ def grep(pattern: str, glob: str = "*", max_results: int = 60) -> str:
     return "\n".join(rows) or f"[no matches for /{pattern}/]"
 
 
-@function_tool
-def run_command(command: str) -> str:
-    """Run a shell command INSIDE the repo to verify a hypothesis.
-
-    Use to run tests, reproduce a bug, check versions, trace behavior, etc.
-    Destructive/networked commands are blocked. Output is truncated.
-    """
-    if _is_blocked(command):
-        return f"[blocked command] refused: {command!r}"
+def _run_local(command: str) -> str:
     try:
         res = subprocess.run(
             command,
@@ -118,6 +110,31 @@ def run_command(command: str) -> str:
     if len(out) > 6000:
         out = out[:6000] + "\n... (truncated)"
     return f"$ {command}\n[exit {res.returncode}]\n{out or '[no output]'}"
+
+
+@function_tool
+def run_command(command: str) -> str:
+    """Run a shell command INSIDE the repo to verify a hypothesis.
+
+    Use to run tests, reproduce a bug, check versions, trace behavior, etc.
+    Destructive/networked commands are blocked. Output is truncated.
+    Executes in a Modal sandbox when backend == "modal", else locally.
+    """
+    if _is_blocked(command):
+        return f"[blocked command] refused: {command!r}"
+
+    if SETTINGS.backend == "modal":
+        try:
+            from .modal_backend import run_command_modal
+
+            return run_command_modal(command)
+        except Exception as e:  # noqa: BLE001 — never let the demo die on infra
+            return (
+                f"[modal backend unavailable, ran locally instead: {e}]\n"
+                + _run_local(command)
+            )
+
+    return _run_local(command)
 
 
 # Tools every investigation sub-agent gets.
