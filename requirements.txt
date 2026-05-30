@@ -1,0 +1,4 @@
+openai-agents>=0.0.1
+openai>=1.40.0
+modal>=0.64.0
+python-dotenv>=1.0.0
